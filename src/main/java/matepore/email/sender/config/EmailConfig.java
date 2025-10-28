@@ -20,6 +20,9 @@ public class EmailConfig {
     @Value("${email.address.from}")
     private String emailAddressFrom;
 
+    @Value("${email.password}")
+    private String emailPassword;
+
 
     //Creates and configures a JavaMailSender instance for Gmail SMTP
     //@return configured JavaMailSender bean
@@ -31,7 +34,7 @@ public class EmailConfig {
         mailSender.setHost("smtp.gmail.com");
         mailSender.setPort(587);
         mailSender.setUsername(emailAddressFrom);
-        mailSender.setPassword("<NotARealPassword>");//This is just temporary and not the real password, eventually I will change it to something secure
+        mailSender.setPassword(emailPassword);
 
         // Set additional mail properties
         Properties properties = mailSender.getJavaMailProperties();
