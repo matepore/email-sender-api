@@ -46,7 +46,7 @@ public class EmailController {
     }
 
     // Endpoint for sending emails with file attachments
-    @PostMapping("/send-message-with-file")
+    @PostMapping(value = "/send-message-with-file", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, String>> receiveRequestEmailWithFile(@ModelAttribute @Validated EmailFileDto emailFileDto) {
         logger.info("Received email with file sending request to: {}", (Object) emailFileDto.getToAddress());
 
