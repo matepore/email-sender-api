@@ -1,5 +1,10 @@
 package matepore.email.sender.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import matepore.email.sender.dto.EmailDto;
 import matepore.email.sender.dto.EmailFileDto;
 import matepore.email.sender.exception.EmailSendException;
@@ -10,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,7 +29,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/email/v1")
 public class EmailController {
-    // Logger for email operations tracking
+
+    //Logger for tracking email operations
     private static final Logger logger = LoggerFactory.getLogger(EmailController.class);
     private final IEmailService emailService;
 
@@ -32,7 +39,22 @@ public class EmailController {
         this.emailService = emailService;
     }
 
-    // Endpoint for sending simple emails without attachments
+    @Operation(
+            summary = "Send a simple email message",
+            description = "Sends an email to one or multiple recipients without attachments.",
+            requestBody = @RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = EmailDto.class)
+                    )
+            ),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Email sent successfully"),
+                    @ApiResponse(responseCode = "400", description = "Invalid request data")
+            }
+    )
+    //Endpoint for sending simple emails without attachments
     @PostMapping("/send-message")
     public ResponseEntity<Map<String, String>> receiveRequestEmail(@RequestBody @Validated EmailDto emailDto) {
         logger.info("Received email sending request to: {}", (Object) emailDto.getToAddress());
@@ -41,30 +63,58 @@ public class EmailController {
 
         Map<String, String> response = new HashMap<>();
         response.put("Status", "Email sent successfully");
-
         return ResponseEntity.ok(response);
     }
 
-    // Endpoint for sending emails with file attachments
+    @Operation(
+            summary = "Send an email with file attachment",
+            description = "Sends an email with an optional file attachment using multipart/form-data.",
+            requestBody = @RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = "multipart/form-data",
+                            schema = @Schema(implementation = EmailFileDto.class)
+                    )
+            ),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Email sent successfully with file"),
+                    @ApiResponse(responseCode = "400", description = "Error processing the file or invalid data")
+            }
+    )
+    //Endpoint for sending email with file attachment
     @PostMapping(value = "/send-message-with-file", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, String>> receiveRequestEmailWithFile(@ModelAttribute @Validated EmailFileDto emailFileDto) {
+
         logger.info("Received email with file sending request to: {}", (Object) emailFileDto.getToAddress());
 
-        Path tempFilePath = null;
-        try {
-            String fileName = emailFileDto.getFile().getName();
+        MultipartFile filePart = emailFileDto.getFile();
 
-            // Store file temporarily before sending
-            tempFilePath = Paths.get("src/main/resources/files/" + fileName);
+        //Validates that a file was uploaded
+        if (filePart == null || filePart.isEmpty()) {
+            throw new EmailSendException("No file was uploaded or file is empty");
+        }
+
+        //Obtains the original filename
+        String originalFilename = filePart.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank()) {
+            originalFilename = "attachment_" + System.currentTimeMillis();
+        }
+
+        Path tempFilePath = null;
+
+        try {
+            //Store file temporarily before sending
+            tempFilePath = Paths.get("src/main/resources/files/" + originalFilename);
             Files.createDirectories(tempFilePath.getParent());
-            Files.copy(emailFileDto.getFile().getInputStream(), tempFilePath, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(filePart.getInputStream(), tempFilePath, StandardCopyOption.REPLACE_EXISTING);
+
             File file = tempFilePath.toFile();
 
             emailService.sendEmailWithFile(emailFileDto.getToAddress(), emailFileDto.getSubject(), emailFileDto.getMessage(), file);
 
             Map<String, String> response = new HashMap<>();
             response.put("status", "Email sent successfully");
-            response.put("file", fileName);
+            response.put("file", originalFilename);
 
             return ResponseEntity.ok(response);
 
@@ -73,7 +123,7 @@ public class EmailController {
             throw new EmailSendException(errorMessage, e);
 
         } finally {
-            // Clean up temporary file after sending
+            //Clean up temporary file after sending
             if (tempFilePath != null) {
                 try {
                     Files.deleteIfExists(tempFilePath);

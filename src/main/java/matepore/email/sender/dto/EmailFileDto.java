@@ -4,10 +4,12 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.web.multipart.MultipartFile;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(
